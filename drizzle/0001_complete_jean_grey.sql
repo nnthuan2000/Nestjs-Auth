@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "password_reset_token_expires_at" DROP NOT NULL;
