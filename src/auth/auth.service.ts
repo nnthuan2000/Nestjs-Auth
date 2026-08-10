@@ -7,6 +7,7 @@ import { SafeUser, UsersService } from 'src/users/users.service';
 import { JwtPayload } from './types/jwt-payload.type';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
+import { RefreshTokenDto } from './dtos/refresh-token.dto';
 
 export type AuthResult = {
   user: SafeUser;
@@ -103,6 +104,43 @@ export class AuthService {
 
     const payload: JwtPayload = { sub: user.id, email: user.email };
     const { accessToken, refreshToken } = await this.issueTokens(payload);
+
+    const refreshTokenHash = await argon2.hash(refreshToken);
+
+    await this.usersService.updateRefreshTokenHash(user.id, refreshTokenHash);
+
+    return {
+      user: this.usersService.toSafeUser(user),
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async refresh(dto: RefreshTokenDto): Promise<AuthResult> {
+    let payload: JwtPayload;
+
+    try {
+      payload = await this.jwtService.verifyAsync<JwtPayload>(dto.refreshToken, {
+        secret: this.configSerivce.getOrThrow<string>('REFRESH_TOKEN_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const user = await this.usersService.fincById(payload.sub);
+
+    if (!user || !user.refreshTokenHash) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const isRefreshTokenValid = await argon2.verify(user.refreshTokenHash, dto.refreshToken);
+
+    if (!isRefreshTokenValid) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const newPayload: JwtPayload = { sub: user.id, email: user.email };
+    const { accessToken, refreshToken } = await this.issueTokens(newPayload);
 
     const refreshTokenHash = await argon2.hash(refreshToken);
 
