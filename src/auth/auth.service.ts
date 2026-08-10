@@ -152,4 +152,20 @@ export class AuthService {
       refreshToken,
     };
   }
+
+  async logout(userId: string): Promise<{ success: true }> {
+    await this.usersService.clearRefreshTokenHash(userId);
+
+    return { success: true };
+  }
+
+  async getProfile(userId: string): Promise<SafeUser> {
+    const user = await this.usersService.fincById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
+
+    return this.usersService.toSafeUser(user);
+  }
 }
