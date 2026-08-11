@@ -6,10 +6,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { AccessTokenGuard } from './guards/access-token.guard';
 import { GoogleAuthService } from './google-auth.service';
 import { GithubAuthService } from './github-auth.service';
+import { MailService } from './mail.service';
 
 @Module({
   imports: [UsersModule, JwtModule.register({})],
   controllers: [AuthController],
-  providers: [AuthService, AccessTokenGuard, GoogleAuthService, GithubAuthService],
+  providers: [AuthService, AccessTokenGuard, GoogleAuthService, GithubAuthService, MailService],
 })
 export class AuthModule {}

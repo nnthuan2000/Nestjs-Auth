@@ -22,6 +22,8 @@ import { SafeUser } from 'src/users/users.service';
 import { GoogleAuthService } from './google-auth.service';
 import { ConfigService } from '@nestjs/config';
 import { GithubAuthService } from './github-auth.service';
+import { ForgotPasswordDto } from './dtos/forgot-password.dto';
+import { ResetPasswordDto } from './dtos/reset-password.dto';
 
 const OAUTH_STATE_COOKIE_NAME = 'google_oauth_state';
 const GITHUB_STATE_COOKIE = 'github_oauth_state';
@@ -175,6 +177,19 @@ export class AuthController {
   }
 
   //#endregion
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ success: true }> {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ success: true }> {
+    return this.authService.resetPassword(dto);
+  }
+
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
     const isProduction = this.configService.get('NODE_ENV') === 'production';
 

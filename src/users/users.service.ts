@@ -141,6 +141,16 @@ export class UsersService {
       .where(eq(users.id, userId));
   }
 
+  async findByPasswordResetTokenHash(passwordResetTokenHash: string): Promise<User | undefined> {
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.passwordResetTokenHash, passwordResetTokenHash))
+      .limit(1);
+
+    return user;
+  }
+
   toSafeUser(user: User): SafeUser {
     return {
       id: user.id,
