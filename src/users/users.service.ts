@@ -58,9 +58,9 @@ export class UsersService {
   async createOAuthUser(data: {
     name: string;
     email: string;
-    avatarUrl: string;
+    avatarUrl?: string;
     googleId?: string;
-    github?: string;
+    githubId?: string;
   }): Promise<User> {
     const [user] = await this.db
       .insert(users)
@@ -69,7 +69,7 @@ export class UsersService {
         email: data.email,
         avatarUrl: data.avatarUrl,
         googleId: data.googleId,
-        githubId: data.github,
+        githubId: data.githubId,
       })
       .returning();
 

@@ -168,4 +168,57 @@ export class AuthService {
 
     return this.usersService.toSafeUser(user);
   }
+
+  async loginWithOAuthProfile(profile: {
+    email: string;
+    name: string;
+    avatarUrl?: string;
+    googleId?: string;
+    githubId?: string;
+  }): Promise<AuthResult> {
+    const email = this.normalizeEmail(profile.email);
+
+    let user = profile.googleId
+      ? await this.usersService.findByGoogleId(profile.googleId)
+      : undefined;
+
+    if (!user && profile.githubId) {
+      user = await this.usersService.findByGithubId(profile.githubId);
+    }
+
+    if (!user) {
+      await this.usersService.findByEmail(email);
+    }
+
+    if (!user) {
+      user = await this.usersService.createOAuthUser({
+        name: profile.name,
+        email,
+        avatarUrl: profile.avatarUrl,
+        googleId: profile.googleId,
+        githubId: profile.githubId,
+      });
+    } else {
+      if (profile.googleId && !user.googleId) {
+        await this.usersService.linkGoogleId(user.id, profile.googleId);
+      }
+
+      if (profile.githubId && !user.githubId) {
+        await this.usersService.linkGithubId(user.id, profile.githubId);
+      }
+    }
+
+    const payload: JwtPayload = { sub: user.id, email: user.email };
+    const { accessToken, refreshToken } = await this.issueTokens(payload);
+
+    const refreshTokenHash = await argon2.hash(refreshToken);
+
+    await this.usersService.updateRefreshTokenHash(user.id, refreshTokenHash);
+
+    return {
+      user: this.usersService.toSafeUser(user),
+      accessToken,
+      refreshToken,
+    };
+  }
 }

@@ -4,10 +4,11 @@ import { AuthService } from './auth.service';
 import { UsersModule } from 'src/users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { AccessTokenGuard } from './guards/access-token.guard';
+import { GoogleAuthService } from './google-auth.service';
 
 @Module({
   imports: [UsersModule, JwtModule.register({})],
   controllers: [AuthController],
-  providers: [AuthService, AccessTokenGuard],
+  providers: [AuthService, AccessTokenGuard, GoogleAuthService],
 })
 export class AuthModule {}
