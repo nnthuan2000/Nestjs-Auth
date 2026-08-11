@@ -21,8 +21,10 @@ import { type JwtPayload } from './types/jwt-payload.type';
 import { SafeUser } from 'src/users/users.service';
 import { GoogleAuthService } from './google-auth.service';
 import { ConfigService } from '@nestjs/config';
+import { GithubAuthService } from './github-auth.service';
 
 const OAUTH_STATE_COOKIE_NAME = 'google_oauth_state';
+const GITHUB_STATE_COOKIE = 'github_oauth_state';
 
 @Controller('auth')
 export class AuthController {
@@ -30,6 +32,7 @@ export class AuthController {
     private readonly configService: ConfigService,
     private readonly authService: AuthService,
     private readonly googleAuthService: GoogleAuthService,
+    private readonly githubAuthService: GithubAuthService,
   ) {}
 
   @Post('register')
@@ -64,6 +67,7 @@ export class AuthController {
     return this.authService.getProfile(user.sub);
   }
 
+  //#region Google OAuth
   @Get('google')
   googleAuth(@Res() res: Response): void {
     const state = this.googleAuthService.generateState();
@@ -116,6 +120,61 @@ export class AuthController {
       res.redirect(`${frontendUrl}/auth/callback?error=google_auth_failed`);
     }
   }
+  //#endregion
+
+  //#region Github OAuth
+  @Get('github')
+  githubAuth(@Res() res: Response): void {
+    const state = this.githubAuthService.generateState();
+
+    res.cookie(GITHUB_STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: this.configService.get('NODE_ENV') === 'production',
+      sameSite: 'lax',
+      maxAge: 5 * 60 * 1000,
+    });
+
+    const authorizationUrl = this.githubAuthService.getAuthorizationUrl(state);
+
+    res.redirect(authorizationUrl);
+  }
+
+  @Get('github/callback')
+  async githubCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    const cookieState = (req.cookies as Record<string, string> | undefined)?.[GITHUB_STATE_COOKIE];
+
+    res.clearCookie(GITHUB_STATE_COOKIE);
+
+    const frontendUrl = this.configService.getOrThrow<string>('FRONTEND_URL');
+
+    if (!code || !state || !cookieState || state !== cookieState) {
+      res.redirect(`${frontendUrl}/auth/callback?error=invalid_oauth_state`);
+      return;
+    }
+
+    try {
+      const githubAccessToken = await this.githubAuthService.exchangeCodeForAccessToken(code);
+      const profile = await this.githubAuthService.fetchProfile(githubAccessToken);
+      const result = await this.authService.loginWithOAuthProfile({
+        email: profile.email,
+        name: profile.name,
+        avatarUrl: profile.avatarUrl,
+        githubId: profile.githubId,
+      });
+
+      this.setAuthCookies(res, result.accessToken, result.refreshToken);
+      res.redirect(`${frontendUrl}/auth/callback`);
+    } catch {
+      res.redirect(`${frontendUrl}/auth/callback?error=github_auth_failed`);
+    }
+  }
+
+  //#endregion
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
     const isProduction = this.configService.get('NODE_ENV') === 'production';
 
