@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { AuthResult, AuthService } from './auth.service';
+import { AuthService } from './auth.service';
 import {
   Body,
   Controller,
@@ -39,27 +39,38 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterDto): Promise<AuthResult> {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Res() res: Response): Promise<void> {
+    const result = await this.authService.register(dto);
+    this.setAuthCookies(res, result.accessToken, result.refreshToken);
+    res.status(HttpStatus.CREATED).json(result.user);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.CREATED)
-  async login(@Body() dto: LoginDto): Promise<AuthResult> {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Res() res: Response): Promise<void> {
+    const result = await this.authService.login(dto);
+    this.setAuthCookies(res, result.accessToken, result.refreshToken);
+    res.status(HttpStatus.CREATED).json(result.user);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.CREATED)
-  async refresh(@Body() dto: RefreshTokenDto): Promise<AuthResult> {
-    return this.authService.refresh(dto);
+  async refresh(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const refreshToken = (req.cookies['refresh_token'] as string) || '';
+    const dto: RefreshTokenDto = { refreshToken };
+    const result = await this.authService.refresh(dto);
+    this.setAuthCookies(res, result.accessToken, result.refreshToken);
+    res.status(HttpStatus.CREATED).json(result.user);
   }
 
   @Post('logout')
   @UseGuards(AccessTokenGuard)
   @HttpCode(HttpStatus.OK)
-  async logout(@CurrentUser() user: JwtPayload): Promise<{ success: true }> {
-    return this.authService.logout(user.sub);
+  async logout(@CurrentUser() user: JwtPayload, @Res() res: Response): Promise<void> {
+    await this.authService.logout(user.sub);
+    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
+    res.sendStatus(HttpStatus.OK);
   }
 
   @Get('me')

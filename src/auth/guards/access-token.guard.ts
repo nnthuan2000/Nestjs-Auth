@@ -15,7 +15,11 @@ export class AccessTokenGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
 
-    const token = this.extractTokenFromHeader(request);
+    let token = this.extractTokenFromHeader(request);
+
+    if (!token) {
+      token = this.extractTokenFromCookie(request);
+    }
 
     if (!token) {
       throw new UnauthorizedException('Missing access token');
@@ -32,6 +36,15 @@ export class AccessTokenGuard implements CanActivate {
     }
 
     return true;
+  }
+  extractTokenFromCookie(request: Request): string | undefined {
+    const accessToken = (request.cookies['access_token'] as string) ?? '';
+
+    if (!accessToken) {
+      return undefined;
+    }
+
+    return accessToken;
   }
 
   extractTokenFromHeader(request: Request): string | undefined {
